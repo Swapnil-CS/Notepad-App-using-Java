@@ -12,7 +12,6 @@ import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.FlowLayout;
 
-
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -23,7 +22,9 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
-import javax.swing.border.*;
+import javax.swing.undo.UndoManager;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,6 +38,7 @@ public class MyFrame extends JFrame implements ActionListener, KeyListener {
 	JTextArea textArea;
 	JLabel charCount;
 	String text;
+	UndoManager undoManager;
 	
 	public MyFrame() {
 		setTitle("Notepad");
@@ -60,6 +62,12 @@ public class MyFrame extends JFrame implements ActionListener, KeyListener {
 		JMenuItem saveItem = new JMenuItem("Save");
 		saveItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, ActionEvent.CTRL_MASK));
 		
+		JMenuItem undoItem = new JMenuItem("Undo");
+        undoItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, ActionEvent.CTRL_MASK));
+
+        JMenuItem redoItem = new JMenuItem("Redo");
+        redoItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, ActionEvent.CTRL_MASK));
+		
 		JMenuItem cutItem = new JMenuItem("Cut");
 		cutItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X, ActionEvent.CTRL_MASK));
 		
@@ -79,6 +87,8 @@ public class MyFrame extends JFrame implements ActionListener, KeyListener {
 		file.add(openItem);
 		file.add(saveItem);
 		
+		edit.add(undoItem);
+        edit.add(redoItem);
 		edit.add(cutItem);
 		edit.add(copyItem);
 		edit.add(pasteItem);
@@ -94,6 +104,8 @@ public class MyFrame extends JFrame implements ActionListener, KeyListener {
 		openItem.addActionListener(this);
 		saveItem.addActionListener(this);
 		
+		undoItem.addActionListener(this);
+        redoItem.addActionListener(this);
 		cutItem.addActionListener(this);
 		copyItem.addActionListener(this);
 		pasteItem.addActionListener(this);
@@ -103,11 +115,14 @@ public class MyFrame extends JFrame implements ActionListener, KeyListener {
 		textArea = new JTextArea();
 		textArea.addKeyListener(this);
 		
+		undoManager = new UndoManager();
+        textArea.getDocument().addUndoableEditListener(undoManager);
+		
 		JScrollPane widthScroll = new JScrollPane(textArea);
 		add(widthScroll, BorderLayout.CENTER);
 		
 		JPanel bottomPanel = new JPanel();
-		charCount = new JLabel("Characters: 0    Words: 0");
+		charCount = new JLabel("Characters: 0    Words: 0        Ln 1, Col 1");
 		bottomPanel.add(charCount);
 		add(bottomPanel, BorderLayout.SOUTH);
 		
@@ -120,20 +135,26 @@ public class MyFrame extends JFrame implements ActionListener, KeyListener {
 	
 	@Override
 	public void keyTyped(KeyEvent e) {
-		String str = textArea.getText();
-		int countChar = str.length()+1;
-		int countWord = 1;
-		int col = 1;
-		int ln=1;
-		String trimStr = str.trim();
-		for(int i=0;i<trimStr.length();i++) {
-			char curr = trimStr.charAt(i);
-			if(curr == ' ' || curr == '\n') {
-				countWord++;
-			}
-		}
-		charCount.setText("Characters: "+countChar+"    Words: "+countWord);
-	}
+        String str = textArea.getText();
+        int countChar = str.length() + 1;
+        int countWord = 1;
+        int col = 1;
+        int ln = 1;
+        String trimStr = str.trim();
+        for (int i = 0; i < trimStr.length(); i++) {
+            char curr = trimStr.charAt(i);
+            if (curr == ' ' || curr == '\n') {
+                countWord++;
+            }
+            if (curr == '\n') {
+                ln++;
+                col = 1;
+            } else {
+                col++;
+            }
+        }
+        charCount.setText("Characters: " + countChar + "    Words: " + countWord+"        Ln "+ln+", Col "+col);
+    }
 	
 	@Override
 	public void keyPressed(KeyEvent e) {
@@ -158,6 +179,16 @@ public class MyFrame extends JFrame implements ActionListener, KeyListener {
 		else if(cmd.equalsIgnoreCase("Save")) {
 			saveFile();
 		}
+		else if (cmd.equalsIgnoreCase("Undo")) {
+            if (undoManager.canUndo()) {
+                undoManager.undo();
+            }
+        }
+		else if (cmd.equalsIgnoreCase("Redo")) {
+            if (undoManager.canRedo()) {
+                undoManager.redo();
+            }
+        }    
 		else if(cmd.equalsIgnoreCase("Cut")) {
 			text = textArea.getSelectedText();
 			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
